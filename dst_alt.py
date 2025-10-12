@@ -184,9 +184,9 @@ def plot_combined(dst_times, dst_vals, a_times, a_vals, catnr, start_dt, end_dt)
 
     # 左轴现在显示半长轴（红色）
     if a_times:
-        ax1.plot(a_times, a_vals, 'o-', linewidth=1.5, markersize=4, color='tab:red', label="Semi-major Axis Altitude (km)")
-        ax1.set_ylabel("Semi-major axis (km)", color='tab:red')
-        ax1.tick_params(axis='y', labelcolor='tab:red')
+        ax1.plot(a_times, a_vals, 'o-', linewidth=1.5, markersize=4, color='tab:blue', label="Semi-major Axis Altitude (km)")
+        ax1.set_ylabel("Semi-major axis (km)", color='tab:blue')
+        ax1.tick_params(axis='y', labelcolor='tab:blue')
     else:
         ax1.set_ylabel("")  # 保持布局稳定
 
@@ -196,9 +196,9 @@ def plot_combined(dst_times, dst_vals, a_times, a_vals, catnr, start_dt, end_dt)
     # 右轴显示 DST（蓝色）
     ax2 = ax1.twinx()
     if dst_times:
-        ax2.plot(dst_times, dst_vals, '-', linewidth=0.8, markersize=2, label="DST (nT)", color='tab:blue')
-        ax2.set_ylabel("DST (nT)", color='tab:blue')
-        ax2.tick_params(axis='y', labelcolor='tab:blue')
+        ax2.plot(dst_times, dst_vals, '-', linewidth=0.8, markersize=2, label="DST (nT)", color='tab:red')
+        ax2.set_ylabel("DST (nT)", color='tab:red')
+        ax2.tick_params(axis='y', labelcolor='tab:red')
 
     # 格式化 x 轴
     locator = mdates.AutoDateLocator()
