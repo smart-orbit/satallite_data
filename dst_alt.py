@@ -4,9 +4,9 @@ import glob
 import json
 import math
 import datetime
-import argparse
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+
 import requests
 from skyfield.api import load, wgs84, EarthSatellite
 
@@ -22,17 +22,25 @@ os.makedirs(DST_PLOT_DIR, exist_ok=True)
 
 # Space-Track / TLE 缓存模板（在 main 中按传入的 NORAD 编号生成具体路径）
 CACHE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_CATNR = 25544
+
 TLE_CACHE_TEMPLATE = os.path.join(CACHE_DIR, "spacetrack_tle_{catnr}.json")
 
 # 物理常数
 MU_EARTH = 398600.4418  # km^3 / s^2
 R_EARTH_KM = 6371.0
 
+# ==========================需要配置的部分==========================
 # 登录部分
 USERNAME = "##YOUR_USERNAME_HERE##"
 PASSWORD = "##YOUR_PASSWORD_HERE##"
-# ===========================
+# ======= 本地配置（将命令行参数改为在此处修改） =======
+DEFAULT_CATNR = 25544   # 国际空间站 ISS
+# 设置想要的 NORAD 编号 / 时间范围（UTC），填写字符串或 None
+CATNR_INTERNAL = DEFAULT_CATNR
+# 示例：指定为近十年范围（编辑为你需要的起止时间），或设为 None 表示不限制
+START_STR = "2024-05-01"  # e.g. "2015-10-11"
+END_STR = "2024-06-01"    # e.g. "2025-10-11"
+# =======================================================
 
 def load_dst_timeseries():
     times = []
@@ -173,22 +181,24 @@ def plot_combined(dst_times, dst_vals, a_times, a_vals, catnr, start_dt, end_dt)
         return
 
     fig, ax1 = plt.subplots(figsize=(14, 6))
-    # 左轴显示 DST
-    if dst_times:
-        ax1.plot(dst_times, dst_vals, '-', linewidth=0.8, markersize=2, label="DST (nT)", color='tab:blue')
+
+    # 左轴现在显示半长轴（红色）
+    if a_times:
+        ax1.plot(a_times, a_vals, 'o-', linewidth=1.5, markersize=4, color='tab:red', label="Semi-major Axis Altitude (km)")
+        ax1.set_ylabel("Semi-major axis (km)", color='tab:red')
+        ax1.tick_params(axis='y', labelcolor='tab:red')
+    else:
+        ax1.set_ylabel("")  # 保持布局稳定
+
     ax1.set_xlabel("UTC time")
-    ax1.set_ylabel("DST (nT)", color='tab:blue')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
     ax1.grid(True, which='both', linestyle=':', alpha=0.5)
 
-    # 右轴显示半长轴
-    if a_times:
-        ax2 = ax1.twinx()
-        ax2.plot(a_times, a_vals, 'o-', linewidth=0.9, markersize=4, color='tab:red', label="semi-major axis (km)")
-        ax2.set_ylabel("Semi-major axis (km)", color='tab:red')
-        ax2.tick_params(axis='y', labelcolor='tab:red')
-    else:
-        ax2 = None
+    # 右轴显示 DST（蓝色）
+    ax2 = ax1.twinx()
+    if dst_times:
+        ax2.plot(dst_times, dst_vals, '-', linewidth=0.8, markersize=2, label="DST (nT)", color='tab:blue')
+        ax2.set_ylabel("DST (nT)", color='tab:blue')
+        ax2.tick_params(axis='y', labelcolor='tab:blue')
 
     # 格式化 x 轴
     locator = mdates.AutoDateLocator()
@@ -197,24 +207,27 @@ def plot_combined(dst_times, dst_vals, a_times, a_vals, catnr, start_dt, end_dt)
     ax1.xaxis.set_major_formatter(formatter)
     fig.autofmt_xdate()
 
-    # 图例处理
+    # 图例处理（安全地收集各轴的线）
     lines = []
     labels = []
-    l1, = ax1.get_lines()
-    lines.append(l1); labels.append(l1.get_label())
-    if ax2 and ax2.get_lines():
+    if ax1.get_lines():
+        l1 = ax1.get_lines()[0]
+        lines.append(l1); labels.append(l1.get_label())
+    if ax2.get_lines():
         l2 = ax2.get_lines()[0]
         lines.append(l2); labels.append(l2.get_label())
     if lines:
-        ax1.legend(lines, labels, loc="upper left")
+        # 将图例放在左下角，字体大小设置为 16
+        ax1.legend(lines, labels, loc="lower left", fontsize=12)
 
     # 根据传入的 NORAD 编号和起止时间生成文件名：NORAD-YYYYMMDD_YYYYMMDD.png
     start_str = start_dt.strftime("%Y%m%d") if start_dt else "all"
     end_str = end_dt.strftime("%Y%m%d") if end_dt else "all"
     out_png = os.path.join(DST_PLOT_DIR, f"{catnr}-{start_str}_{end_str}.png")
-
+    plt.title(f"DST and Semi-major Axis Altitude for NORAD {catnr}")
+    plt.rcParams.update({'font.size': 16})
     plt.tight_layout()
-    plt.savefig(out_png, dpi=150)
+    plt.savefig(out_png, dpi=300)
     plt.close()
     print(f"[INFO] 已保存合并图像: {out_png}")
 
@@ -257,27 +270,22 @@ def filter_by_range(times, vals, start_dt, end_dt):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="绘制 DST 与卫星平均半长轴的合并图（可指定起止时间和 NORAD 编号）")
-    parser.add_argument("--start", "-s", help="绘图起始时间（UTC），例如 2021-01-05 或 2021-01-05T12:00")
-    parser.add_argument("--end", "-e", help="绘图结束时间（UTC），例如 2021-01-20 或 2021-01-20T12:00")
-    parser.add_argument("--catnr", type=int, default=DEFAULT_CATNR, help=f"NORAD 编号，默认 {DEFAULT_CATNR}")
-    args = parser.parse_args()
-
-    catnr = args.catnr
+    # 使用文件内配置而不是命令行参数
+    catnr = CATNR_INTERNAL
 
     try:
-        start_dt = parse_time_arg(args.start)
+        start_dt = parse_time_arg(START_STR) if START_STR else None
     except Exception as ex:
         print("[ERROR] start 参数解析失败：", ex)
         return
     try:
-        end_dt = parse_time_arg(args.end)
+        end_dt = parse_time_arg(END_STR) if END_STR else None
     except Exception as ex:
         print("[ERROR] end 参数解析失败：", ex)
         return
 
     if start_dt and end_dt and start_dt > end_dt:
-        print("[ERROR] start 时间晚于 end 时间，请调整参数。")
+        print("[ERROR] start 时间晚于 end 时间，请调整文件内配置。")
         return
 
     dst_times, dst_vals = load_dst_timeseries()
@@ -318,7 +326,6 @@ def main():
         a_times, a_means = [], []
 
     plot_combined(dst_times, dst_vals, a_times, a_means, catnr, start_dt, end_dt)
-
 
 if __name__ == "__main__":
     main()
