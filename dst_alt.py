@@ -31,15 +31,15 @@ R_EARTH_KM = 6371.0
 
 # ==========================需要配置的部分==========================
 # 登录部分
-USERNAME = "##YOUR_USERNAME_HERE##"
-PASSWORD = "##YOUR_PASSWORD_HERE##"
+USERNAME = "18045011970@163.com"
+PASSWORD = "Xy12251220030226"
 # ======= 本地配置（将命令行参数改为在此处修改） =======
-DEFAULT_CATNR = 25544   # 国际空间站 ISS
+DEFAULT_CATNR = 39086   # saral 的 NORAD 编号
 # 设置想要的 NORAD 编号 / 时间范围（UTC），填写字符串或 None
 CATNR_INTERNAL = DEFAULT_CATNR
 # 示例：指定为近十年范围（编辑为你需要的起止时间），或设为 None 表示不限制
-START_STR = "2024-05-01"  # e.g. "2015-10-11"
-END_STR = "2024-06-01"    # e.g. "2025-10-11"
+START_STR = "2025-01-01"  # e.g. "2015-10-11"
+END_STR = "2025-10-01"    # e.g. "2025-10-11"
 # =======================================================
 
 def load_dst_timeseries():
@@ -76,8 +76,8 @@ def load_dst_timeseries():
                         continue
 
                 nums = list(map(int, re.findall(r"-?\d+", line)))
-                if len(nums) >= 24:
-                    hour_vals = nums[-24:]
+                if len(nums) >= 25:
+                    hour_vals = nums[-25:-1] # 最后 25 个数字中前 24 个是dst值
                 else:
                     if not nums:
                         continue
