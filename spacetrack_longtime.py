@@ -58,7 +58,7 @@ def parse_epoch(rec):
 # Create list with cached parsed epochs
 tles_with_epochs = [(parse_epoch(rec), rec) for rec in tle_records]
 tles_with_epochs.sort(key=lambda x: x[0])
-sorted_tles = [(epoch, rec) for epoch, rec in tles_with_epochs]
+sorted_tles = tles_with_epochs
 
 ts = load.timescale()
 times_all = []

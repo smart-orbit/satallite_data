@@ -70,13 +70,12 @@ def load_dst_timeseries():
                 nums = list(map(int, re.findall(r"-?\d+", line)))
                 if len(nums) >= 24:
                     hour_vals = nums[-24:]
-                else:
-                    if not nums:
-                        continue
+                elif nums:
                     hour_vals = nums[:]
                     # Pad hour_vals to 24 elements efficiently
-                    if len(hour_vals) < 24:
-                        hour_vals.extend([hour_vals[-1]] * (24 - len(hour_vals)))
+                    hour_vals.extend([hour_vals[-1]] * (24 - len(hour_vals)))
+                else:
+                    continue
 
                 for h, v in enumerate(hour_vals):
                     try:
