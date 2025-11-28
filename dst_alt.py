@@ -74,8 +74,9 @@ def load_dst_timeseries():
                     if not nums:
                         continue
                     hour_vals = nums[:]
-                    while len(hour_vals) < 24:
-                        hour_vals.append(hour_vals[-1])
+                    # Pad hour_vals to 24 elements efficiently
+                    if len(hour_vals) < 24:
+                        hour_vals.extend([hour_vals[-1]] * (24 - len(hour_vals)))
 
                 for h, v in enumerate(hour_vals):
                     try:
@@ -88,8 +89,9 @@ def load_dst_timeseries():
     paired = sorted(zip(times, vals), key=lambda x: x[0])
     if not paired:
         return [], []
-    times_sorted, vals_sorted = zip(*paired)
-    return list(times_sorted), list(vals_sorted)
+    times_sorted = [t for t, _ in paired]
+    vals_sorted = [v for _, v in paired]
+    return times_sorted, vals_sorted
 
 
 def load_tles_from_cache_or_raise(catnr):
@@ -138,12 +140,23 @@ def compute_a_mean_from_tles(tle_records):
     ts = load.timescale()
     times_a = []
     a_means = []
+    
+    # Parse epochs once and create sortable list
+    parsed_records = []
+    for rec in tle_records:
+        try:
+            epoch_dt = datetime.datetime.strptime(rec["EPOCH"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+            parsed_records.append((epoch_dt, rec))
+        except (ValueError, KeyError):
+            continue
+    
+    # Sort by parsed epoch
+    parsed_records.sort(key=lambda x: x[0])
+    
     # 遍历按 EPOCH 排序的 TLE 记录，计算对应的平均半长轴高度（基于线速/平均运动）
-    for rec in sorted(tle_records, key=lambda r: datetime.datetime.strptime(r["EPOCH"], "%Y-%m-%d %H:%M:%S")):
+    for epoch_dt, rec in parsed_records:
         line1 = rec["TLE_LINE1"]; line2 = rec["TLE_LINE2"]
         sat = EarthSatellite(line1, line2, "SAT", ts)
-        # 解析纪元时间
-        epoch_dt = datetime.datetime.strptime(rec["EPOCH"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
 
         # 尝试从第二行提取平均运动（rev/day），作为计算半长轴的回退方法
         mm_str = line2[52:63].strip()
