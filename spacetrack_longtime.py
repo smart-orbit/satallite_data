@@ -13,6 +13,7 @@ CATNR = 25544  # NORAD编号
 STEP_HOURS = 4  # 高度计算步长（小时）
 HOURS_EACH_TLE = 12  # 每条TLE前后计算的时间范围（小时）
 MU_EARTH = 398600.4418  # 地球标准引力参数 μ (km^3 / s^2)
+R_EARTH_KM = 6371.0  # 地球平均半径 (km)
 # ==========================
 
 # 创建会话并登录 Space-Track
@@ -50,11 +51,14 @@ else:
         json.dump(tle_records, f, ensure_ascii=False, indent=2)
     print(f"[INFO] 已保存 TLE 到缓存: {cache_file}")
 
-# 按时间升序排序
-sorted_tles = sorted(
-    tle_records,
-    key=lambda rec: datetime.datetime.strptime(rec["EPOCH"], "%Y-%m-%d %H:%M:%S")
-)
+# 按时间升序排序 - parse datetime once and cache
+def parse_epoch(rec):
+    return datetime.datetime.strptime(rec["EPOCH"], "%Y-%m-%d %H:%M:%S")
+
+# Create list with cached parsed epochs
+tles_with_epochs = [(parse_epoch(rec), rec) for rec in tle_records]
+tles_with_epochs.sort(key=lambda x: x[0])
+sorted_tles = tles_with_epochs
 
 ts = load.timescale()
 times_all = []
@@ -64,16 +68,15 @@ altitudes_a = []  #储存平均半长轴的高度
 
 # 遍历每条历史TLE
 #for rec in sorted_tles:
-# 访问最后30条数据
-for rec in sorted_tles[-2000:]:
+# 访问最后2000条数据
+for epoch_dt, rec in sorted_tles[-2000:]:
     line1 = rec["TLE_LINE1"]
     line2 = rec["TLE_LINE2"]
     complete_tle = line1 + "\n" + line2
     # 创建卫星对象
     sat = EarthSatellite(line1, line2,'STARLINK', ts)
     #sat = load.tle_file(complete_tle)
-    # 解析EPOCH时间
-    epoch_dt = datetime.datetime.strptime(rec["EPOCH"], "%Y-%m-%d %H:%M:%S")
+    # Epoch datetime already parsed above
 
     # 读取 TLE 中的 Mean Motion（单位：revs per day）
     # TLE line2 中 mean motion 通常位于字符索引 52:63（0-based slice 52:63）
@@ -88,7 +91,6 @@ for rec in sorted_tles[-2000:]:
     n_rad_s = mean_motion_rev_per_day * 2.0 * math.pi / 86400.0  # 86400 s/day
     # 开普勒第三定律： n^2 = μ / a^3  => a = (μ / n^2)^(1/3)
     a_km = (MU_EARTH / (n_rad_s ** 2)) ** (1.0 / 3.0)  # 半长轴 (km)
-    R_EARTH_KM = 6371.0  # 地球平均半径 (km)
     altitude_a_km = a_km - R_EARTH_KM  # 轨道高度 (km)
 
     # # 以该EPOCH为中心，计算轨道高度
